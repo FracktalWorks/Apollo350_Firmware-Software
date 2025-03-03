@@ -1,0 +1,61 @@
+import time
+import numpy as np
+import plotly.graph_objects as go
+
+class PID:
+    def __init__(self, Kp, Ki, Kd, setpoint):
+        self.Kp = Kp
+        self.Ki = Ki
+        self.Kd = Kd
+        self.setpoint = setpoint
+        self.prev_error = 0
+        self.integral = 0
+
+    def compute(self, current_temp, dt):
+        error = self.setpoint - current_temp
+        self.integral += error * dt
+        derivative = (error - self.prev_error) / dt
+        self.prev_error = error
+        return self.Kp * error + self.Ki * self.integral + self.Kd * derivative
+
+def simulate_process(input_power, current_temp, dt):
+    return current_temp + input_power * dt - (current_temp - 25) * 0.01  # Example model
+
+def autotune_pid(setpoint, current_temp, num_cycles, dt=1.0):
+    Kp = 1.0
+    Ki = 0.1
+    Kd = 0.01
+
+    pid = PID(Kp, Ki, Kd, setpoint)
+    temperatures = []
+
+    for cycle in range(num_cycles):
+        for t in np.arange(0, 10, dt):
+            power = pid.compute(current_temp, dt)
+            current_temp = simulate_process(power, current_temp, dt)
+            temperatures.append(current_temp)
+            time.sleep(dt)
+
+    Kp = Kp * 1.2
+    Ki = Ki * 1.2
+    Kd = Kd * 0.5
+
+    return Kp, Ki, Kd, temperatures
+
+if __name__ == "__main__":
+    setpoint = 75.0
+    current_temp = 20.0
+    num_cycles = 5
+
+    Kp, Ki, Kd, temps = autotune_pid(setpoint, current_temp, num_cycles)
+
+    print(f"Autotuned PID values: Kp={Kp}, Ki={Ki}, Kd={Kd}")
+    print("Temperature readings during tuning:", temps)
+
+    # Plotting with Plotly
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=temps, mode='lines+markers', name='Temperature'))
+    fig.update_layout(title='Temperature Response Over Time',
+                      xaxis_title='Time (s)',
+                      yaxis_title='Temperature (°C)')
+    fig.show()
